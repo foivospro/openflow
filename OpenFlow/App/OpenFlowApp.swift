@@ -5,13 +5,11 @@ struct OpenFlowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        // Main window: shown only for onboarding, then hidden
         Window("OpenFlow", id: "onboarding") {
             OnboardingView(
                 appState: appDelegate.appState,
                 permissionsManager: appDelegate.permissionsManager,
                 onComplete: {
-                    // Close the onboarding window
                     NSApplication.shared.keyWindow?.close()
                 }
             )
@@ -20,9 +18,11 @@ struct OpenFlowApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.center)
 
-        // Settings window
         Settings {
-            SettingsView(appState: appDelegate.appState)
+            SettingsView(
+                appState: appDelegate.appState,
+                permissionsManager: appDelegate.permissionsManager
+            )
         }
     }
 }

@@ -1,9 +1,12 @@
 import AppKit
 import SwiftUI
+import ServiceManagement
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var pillWindow: NSPanel?
+    private var stateObservation: Any?
 
     let appState = AppState()
     lazy var permissionsManager = PermissionsManager(appState: appState)
@@ -13,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
         permissionsManager.checkAll()
+        observeState()
 
         hotkeyManager.onHotkeyPressed = { [weak self] in
             self?.handleHotkey()
@@ -31,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.delegate = self
         menu.addItem(NSMenuItem(title: "OpenFlow", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
 
@@ -45,6 +50,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
 
+    private func observeState() {
+        // Update menu bar icon and pill based on state changes
+        // Using a polling timer since @Observable doesn't bridge to KVO easily here
+        Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateUI()
+            }
+        }
+    }
+
+    private func updateUI() {
+        // Update menu bar icon
+        let iconName: String
+        switch appState.flowState {
+        case .idle: iconName = "mic.fill"
+        case .recording: iconName = "mic.badge.xmark"
+        case .processing: iconName = "brain"
+        case .injecting: iconName = "text.cursor"
+        }
+        statusItem.button?.image = NSImage(systemSymbolName: iconName, accessibilityDescription: "OpenFlow")
+
+        // Update status text in menu
+        if let statusItem = statusItem.menu?.item(withTag: 100) {
+            switch appState.flowState {
+            case .idle:
+                statusItem.title = appState.isModelLoaded ? "Ready — Ctrl+Shift+Space" : "Loading model..."
+            case .recording:
+                statusItem.title = "Recording..."
+            case .processing:
+                statusItem.title = "Processing..."
+            case .injecting:
+                statusItem.title = "Typing..."
+            }
+        }
+
+        // Auto-hide pill when done
+        if appState.flowState == .idle {
+            pillWindow?.orderOut(nil)
+        }
+    }
+
     private func handleHotkey() {
         Task { @MainActor in
             switch appState.flowState {
@@ -52,8 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await pipeline.startRecording()
                 showPill()
             case .recording:
+                showPillProcessing()
                 await pipeline.stopAndProcess()
-                hidePill()
             case .processing, .injecting:
                 break
             }
@@ -62,54 +108,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPill() {
         if pillWindow == nil {
-            let pill = FloatingPillView(appState: appState)
-            let hostingView = NSHostingView(rootView: pill)
-            hostingView.frame = NSRect(x: 0, y: 0, width: 140, height: 40)
-
-            let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 140, height: 40),
-                styleMask: [.nonactivatingPanel, .hudWindow],
-                backing: .buffered,
-                defer: false
-            )
-            panel.level = .floating
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.contentView = hostingView
-            panel.isMovableByWindowBackground = true
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-            // Position near top-center of screen
-            if let screen = NSScreen.main {
-                let screenFrame = screen.visibleFrame
-                let x = screenFrame.midX - 70
-                let y = screenFrame.maxY - 60
-                panel.setFrameOrigin(NSPoint(x: x, y: y))
-            }
-
-            pillWindow = panel
+            createPillWindow()
         }
-
         pillWindow?.orderFront(nil)
     }
 
-    private func hidePill() {
-        // Delay hiding so user can see the processing state
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(500))
-            if appState.flowState == .idle {
-                pillWindow?.orderOut(nil)
-            }
+    private func showPillProcessing() {
+        // Keep pill visible during processing (state change will update the view)
+        pillWindow?.orderFront(nil)
+    }
+
+    private func createPillWindow() {
+        let pill = FloatingPillView(appState: appState)
+        let hostingView = NSHostingView(rootView: pill)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 100, height: 32)
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 100, height: 32),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = false
+        panel.contentView = hostingView
+        panel.isMovableByWindowBackground = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+        // Position at top-center, just below the menu bar
+        if let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let x = screenFrame.midX - 50
+            let y = screenFrame.maxY - 8
+            panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
+
+        pillWindow = panel
     }
 
     @objc private func openSettings() {
-        // TODO: Phase 2 — open settings window
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     @objc private func quit() {
         hotkeyManager.stop()
         NSApplication.shared.terminate(nil)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    nonisolated func menuNeedsUpdate(_ menu: NSMenu) {
+        // Menu items update via the timer-based state observation
     }
 }

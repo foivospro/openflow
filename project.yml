@@ -28,16 +28,21 @@ targets:
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
         ENABLE_APP_SANDBOX: false
         CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_ENTITLEMENTS: OpenFlow/OpenFlow.entitlements
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: OpenFlow/Info.plist
     dependencies:
       - package: WhisperKit
-    info:
-      properties:
-        CFBundleName: OpenFlow
-        CFBundleDisplayName: OpenFlow
-        LSUIElement: true
-        NSMicrophoneUsageDescription: "OpenFlow needs microphone access to transcribe your speech."
-        LSApplicationCategoryType: public.app-category.productivity
-    entitlements:
-      path: OpenFlow/OpenFlow.entitlements
-      properties:
-        com.apple.security.device.audio-input: true
+
+  OpenFlowTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - OpenFlowTests
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: OpenFlow

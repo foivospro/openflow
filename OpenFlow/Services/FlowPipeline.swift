@@ -7,9 +7,11 @@ final class FlowPipeline {
     private let appState: AppState
     private let transcriptionEngine = TranscriptionEngine()
     private let audioRecorder = AudioRecorder()
+    private let vad: VADProcessor
 
     init(appState: AppState) {
         self.appState = appState
+        self.vad = VADProcessor(silenceDuration: appState.silenceThreshold)
     }
 
     func loadModel() async {
@@ -31,11 +33,24 @@ final class FlowPipeline {
             return
         }
 
+        // Setup VAD
+        vad.reset()
+        vad.onSilenceDetected = { [weak self] in
+            Task { @MainActor in
+                await self?.stopAndProcess()
+            }
+        }
+
+        // Feed audio chunks to VAD
+        audioRecorder.onAudioChunk = { [weak self] samples in
+            self?.vad.processBuffer(samples)
+        }
+
         do {
             try audioRecorder.startRecording()
             appState.flowState = .recording
             appState.errorMessage = nil
-            print("[FlowPipeline] Recording started")
+            print("[FlowPipeline] Recording started (VAD auto-stop: \(appState.silenceThreshold)s)")
         } catch {
             appState.errorMessage = "Failed to start recording: \(error.localizedDescription)"
             print("[FlowPipeline] Recording error: \(error)")
@@ -45,9 +60,12 @@ final class FlowPipeline {
     func stopAndProcess() async {
         guard appState.flowState == .recording else { return }
 
+        vad.onSilenceDetected = nil
+        audioRecorder.onAudioChunk = nil
+
         let audioData = audioRecorder.stopRecording()
         appState.flowState = .processing
-        print("[FlowPipeline] Processing \(audioData.count) samples...")
+        print("[FlowPipeline] Processing \(audioData.count) samples (\(String(format: "%.1f", Double(audioData.count) / 16000))s of audio)...")
 
         guard !audioData.isEmpty else {
             appState.flowState = .idle
@@ -64,7 +82,6 @@ final class FlowPipeline {
                 return
             }
 
-            // Inject into focused app
             appState.flowState = .injecting
             await TextInjector.inject(text)
 

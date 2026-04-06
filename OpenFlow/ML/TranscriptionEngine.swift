@@ -1,4 +1,5 @@
 import WhisperKit
+import Foundation
 
 actor TranscriptionEngine {
     private var whisperKit: WhisperKit?

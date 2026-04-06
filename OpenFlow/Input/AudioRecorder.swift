@@ -5,6 +5,9 @@ final class AudioRecorder {
     private var audioBuffer: [Float] = []
     private let bufferLock = NSLock()
 
+    /// Callback for each chunk of converted audio (for VAD)
+    var onAudioChunk: (([Float]) -> Void)?
+
     /// Target format for Whisper: 16kHz mono Float32
     private let targetSampleRate: Double = 16000
 
@@ -14,7 +17,6 @@ final class AudioRecorder {
         let inputNode = audioEngine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create converter to 16kHz mono
         guard let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: targetSampleRate,
@@ -50,6 +52,8 @@ final class AudioRecorder {
                 self.bufferLock.lock()
                 self.audioBuffer.append(contentsOf: samples)
                 self.bufferLock.unlock()
+
+                self.onAudioChunk?(samples)
             }
         }
 
