@@ -1,0 +1,38 @@
+name: OpenFlow
+options:
+  bundleIdPrefix: com.openflow
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit.git
+    from: "0.18.0"
+
+targets:
+  OpenFlow:
+    type: application
+    platform: macOS
+    sources:
+      - OpenFlow
+    settings:
+      base:
+        INFOPLIST_FILE: OpenFlow/Info.plist
+        CODE_SIGN_ENTITLEMENTS: OpenFlow/OpenFlow.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.openflow.app
+        PRODUCT_NAME: OpenFlow
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        SWIFT_VERSION: "5.9"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        ENABLE_APP_SANDBOX: false
+        CODE_SIGN_IDENTITY: "-"
+    dependencies:
+      - package: WhisperKit
+    entitlements:
+      path: OpenFlow/OpenFlow.entitlements
+    info:
+      path: OpenFlow/Info.plist
