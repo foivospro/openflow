@@ -1,1 +1,26 @@
+# Claude
 .claude/
+
+# Xcode generated (from XcodeGen)
+*.xcodeproj/
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+.swiftpm/
+
+# macOS
+.DS_Store
+*.swp
+*~
