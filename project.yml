@@ -19,8 +19,6 @@ targets:
       - OpenFlow
     settings:
       base:
-        INFOPLIST_FILE: OpenFlow/Info.plist
-        CODE_SIGN_ENTITLEMENTS: OpenFlow/OpenFlow.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: com.openflow.app
         PRODUCT_NAME: OpenFlow
         MARKETING_VERSION: "0.1.0"
@@ -32,7 +30,14 @@ targets:
         CODE_SIGN_IDENTITY: "-"
     dependencies:
       - package: WhisperKit
+    info:
+      properties:
+        CFBundleName: OpenFlow
+        CFBundleDisplayName: OpenFlow
+        LSUIElement: true
+        NSMicrophoneUsageDescription: "OpenFlow needs microphone access to transcribe your speech."
+        LSApplicationCategoryType: public.app-category.productivity
     entitlements:
       path: OpenFlow/OpenFlow.entitlements
-    info:
-      path: OpenFlow/Info.plist
+      properties:
+        com.apple.security.device.audio-input: true
